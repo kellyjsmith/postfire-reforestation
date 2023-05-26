@@ -46,7 +46,7 @@ arcpy.CalculateField_management("mtbs_lyr", "Fire_Acres", "!shape.area@acres!", 
 field_mappings = arcpy.FieldMappings()
 field_mappings.addTable("mtbs_lyr")
 for field in field_mappings.fields:
-    if field.name not in ["Incid_Name", "BurnBndAc", "Ig_Year", "Fire_Acres"]:
+    if field.name not in ["Incid_Name", "BurnBndAc", "Ig_Year", "Ig_Date", "Fire_Acres"]:
         field_mappings.removeFieldMap(field_mappings.findFieldMapIndex(field.name))
 # Save output as mtbs_wildfires_CA_1993_2017
 arcpy.FeatureClassToFeatureClass_conversion("mtbs_lyr", arcpy.env.workspace, "mtbs_wildfires_CA_1993_2017", field_mapping=field_mappings)
@@ -80,7 +80,7 @@ for field in keep_fields:
 
 # Merge input features
 arcpy.Merge_management(input_features, output_feature, field_mappings, "ADD_SOURCE_INFO")
-arcpy.AddGeometryAttributes_management(output_feature, "AREA_GEODESIC", Area_Unit="ACRES_US")
+arcpy.AddGeometryAttributes_management(output_feature, "AREA_GEODESIC", Area_Unit="ACRES")
 arcpy.AlterField_management(output_feature, "AREA_GEO", "Acres_within_Fire", "Acres_within_Fire")
 
 ## Export subset of Activity_N related to reforestation

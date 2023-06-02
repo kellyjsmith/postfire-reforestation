@@ -118,10 +118,10 @@ arcpy.management.AddJoin(output_table, "ORIG_OID", input_features, "OBJECTID", "
 arcpy.TableToTable_conversion(output_table, env.workspace, "Overlap_Table_Joined")
 
 # Join "OVERLAP_OID" in Overlap_Table_Joined with "OBJECTID" in Overlap_feature
-arcpy.management.AddJoin("Overlap_Table_Joined", "OVERLAP_OID", output_feature, "OBJECTID", "KEEP_ALL", "NO_INDEX_JOIN_FIELDS")
+# arcpy.management.AddJoin("Overlap_Table_Joined", "OVERLAP_OID", output_feature, "OBJECTID", "KEEP_ALL", "NO_INDEX_JOIN_FIELDS")
 
 # Join "OBJECTID" in Overlap_Feature_Joined with "OVERLAP_OID" in Overlap_Table
-arcpy.management.AddJoin(output_feature, "OBJECTID", output_table, "OVERLAP_OID", "KEEP_ALL", "NO_INDEX_JOIN_FIELDS")
+arcpy.management.AddJoin(output_feature, "OBJECTID", "Overlap_Table_Joined", "OVERLAP_OID", "KEEP_ALL", "NO_INDEX_JOIN_FIELDS")
 arcpy.management.CopyFeatures("Overlap_Feature", "Overlap_Feature_Joined", '', None, None, None)
 
 
@@ -145,18 +145,15 @@ for year in range(1994, 2018):
     
     # ZONAL STATS
     arcpy.sa.ZonalStatisticsAsTable(input_zone, zone_field, input_raster, output_zonal, "NODATA", "ALL")
-    
     # Add field to output_zonal that equals value of Overlap_Table_OVERLAP_OID field for that record
     arcpy.management.AddField(output_zonal, "Overlap_Table_OVERLAP_OID", "LONG")
     arcpy.management.CalculateField(output_zonal, "Overlap_Table_OVERLAP_OID", "!{}!".format(zone_field), "PYTHON3")
-    
     # Add Ig_Year field to output_zonal and set its value to the current year   
     arcpy.management.CalculateField(output_zonal, "Ig_Year", "{}".format(year), "PYTHON3", '', "LONG", "NO_ENFORCE_DOMAINS")
     
     # TABULATE AREA
     arcpy.sa.TabulateArea(input_zone, zone_field, input_raster, class_field, output_tabulate)
     arcpy.management.CalculateField(output_tabulate, "Ig_Year", "{}".format(year), "PYTHON3", '', "LONG", "NO_ENFORCE_DOMAINS")
-
 
 
 # Find all tables containing the text "tabulate_merged" in the name and merge them
@@ -167,8 +164,6 @@ arcpy.Merge_management(tableList, outTable)
 
 
 # Find all tables containing the text "zonal_merged" in the name and merge them
-
-
 # Set the local variables
 outTable = "zonal_allyears"
 fieldMappings = arcpy.FieldMappings()
@@ -183,15 +178,14 @@ for table in tableList:
     for field in fieldMappings.fields:
         if field.name not in keepFields:
             fieldMappings.removeFieldMap(fieldMappings.findFieldMapIndex(field.name))
-
 # Merge the annual zonal tables
 arcpy.Merge_management(tableList, outTable, fieldMappings)
 
 
 # Join the merged Tabulate & Zonal tables by the OVERLAP_OID fields
 in_data = "Overlap_Feature_Joined"
-in_field_zonal = "Overlap_Table_OVERLAP_OID"
-in_field_tabulate = "Overlap_Table_OVERLAP_OID"
+in_field = "Overlap_Table_OVERLAP_OID"
+out_data = "Overlap_Feature_Joined_Severity"
 
 join_table_zonal = "zonal_allyears"
 join_field_zonal = "Overlap_Table_OVERLAP_OID"
@@ -200,10 +194,12 @@ join_field_tabulate = "OVERLAP_TABLE_OVERLAP_OID"
 
 arcpy.management.MakeFeatureLayer(in_data, "input_lyr")
 
-arcpy.management.AddJoin(in_data, in_field_tabulate, join_table_tabulate, join_field_tabulate, "KEEP_ALL")
-arcpy.management.AddJoin(in_data, in_field_zonal, join_table_zonal, join_field_zonal, "KEEP_ALL")
-arcpy.management.CopyRows("input_lyr", Overlap_Feature_Joined_Severity)
+arcpy.management.AddJoin("input_lyr", in_field_tabulate, join_table_tabulate, join_field_tabulate, "KEEP_ALL")
+arcpy.management.AddJoin("input_lyr", in_field_zonal, join_table_zonal, join_field_zonal, "KEEP_ALL")
+arcpy.management.CopyRows("input_lyr", out_data)
 
+# Join "OVERLAP_OID" in Overlap_Table_Joined with "OBJECTID" in Overlap_feature
+arcpy.management.AddJoin("Overlap_Table_Joined", "OVERLAP_OID", "Overlap_Feature_Joined_Severity", "Overlap_Feature_Joined_Overlap_Table_OVERLAP_OID", "KEEP_ALL", "NO_INDEX_JOIN_FIELDS")
 
 # Export table to csv to be used for overlap summarization
 arcpy.TableToTable_conversion("Overlap_Table_Joined", r"C:\Users\smithke3\OneDrive - Oregon State University\Kelly\Data", "Postfire_Overlaps.csv")

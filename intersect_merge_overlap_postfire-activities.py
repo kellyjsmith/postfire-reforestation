@@ -128,58 +128,22 @@ arcpy.management.AddJoin(output_feature, "OBJECTID", "Overlap_Table_Joined", "OV
 arcpy.management.CopyFeatures("Overlap_Feature", "Overlap_Feature_Joined", '', None, None, None)
 
 
-## Summarize the burn severity in each reforestation subunit using TABULATE AREA and ZONAL STATS AS TABLE
-#
-# for year in range(1993, 2018):
-#     if year == 1998:    # no postfire reforestation for fires in 1998
-#         continue
-#     # Select records from Overlap_Feature where Ig_Year is equal to the current year
-#     where_clause = "Overlap_Table_Joined_Ig_Year = {}".format(year)
-#     arcpy.SelectLayerByAttribute_management("Overlap_Feature_Joined", "NEW_SELECTION", where_clause)
-
-#     # Check if Overlap_Table_Joined_FY_COMPLET is greater than or equal to year
-#     with arcpy.da.SearchCursor("Overlap_Feature_Joined", ["Overlap_Table_Joined_FY_COMPLET"]) as cursor:
-#         for row in cursor:
-#             if row[0] < year:
-#                 continue
-
-#     # Use Tabulate Area tool with OVERLAP_OID as feature zone data
-#     input_zone = "Overlap_Feature_Joined"
-#     zone_field = "Overlap_Table_Joined_OVERLAP_OID"
-#     input_raster = "mtbs_CA_{}.tif".format(year)
-#     class_field = "Value"
-#     output_tabulate = "tabulate_postfire_{}".format(year)
-#     output_zonal = "zonal_postfire_{}".format(year)
-    
-#     # ZONAL STATS
-#     arcpy.sa.ZonalStatisticsAsTable(input_zone, zone_field, input_raster, output_zonal, "NODATA", "ALL")
-#     # Add field to output_zonal that equals value of Overlap_Table_OVERLAP_OID field for that record
-#     arcpy.management.AddField(output_zonal, "Overlap_Table_OVERLAP_OID", "LONG")
-#     arcpy.management.CalculateField(output_zonal, "Overlap_Table_OVERLAP_OID", "!{}!".format(zone_field), "PYTHON3")
-#     # Add Ig_Year field to output_zonal and set its value to the current year   
-#     arcpy.management.CalculateField(output_zonal, "Ig_Year", "{}".format(year), "PYTHON3", '', "LONG", "NO_ENFORCE_DOMAINS")
-    
-#     # TABULATE AREA
-#     arcpy.sa.TabulateArea(input_zone, zone_field, input_raster, class_field, output_tabulate)
-#     arcpy.management.CalculateField(output_tabulate, "Ig_Year", "{}".format(year), "PYTHON3", '', "LONG", "NO_ENFORCE_DOMAINS")
-
-
 for year in range(1993, 2018):
     if year == 1998:    # no postfire reforestation for fires in 1998
         continue
-    # Select records from Overlap_Feature where Ig_Year is equal to the current year
-    where_clause = "Overlap_Table_Joined_Ig_Year = {}".format(year)
+    # Select records from Overlap_Feature where Ig_Year is equal to the current year and Overlap_Table_Joined_Ig_Year < Overlap_Table_Joined_FY_COMPLET
+    where_clause = "Overlap_Table_Joined_Ig_Year = {} AND Overlap_Table_Joined_Ig_Year < Overlap_Table_Joined_FY_COMPLET".format(year)
     arcpy.SelectLayerByAttribute_management("Overlap_Feature_Joined", "NEW_SELECTION", where_clause)
 
-    # Check if Overlap_Table_Joined_FY_COMPLET is greater than or equal to year
-    with arcpy.da.SearchCursor("Overlap_Feature_Joined", ["Overlap_Table_Joined_FY_COMPLET"]) as cursor:
-        for row in cursor:
-            if row[0] < year:
-                continue
+    # # Check if Overlap_Table_Joined_FY_COMPLET is greater than or equal to year
+    # with arcpy.da.SearchCursor("Overlap_Feature_Joined", ["Overlap_Table_Joined_FY_COMPLET"]) as cursor:
+    #     for row in cursor:
+    #         if row[0] < year:
+    #             continue
 
     # Use Tabulate Area tool with OVERLAP_OID as feature zone data
     input_zone = "Overlap_Feature_Joined"
-    zone_field = "Overlap_Table_Joined_OVERLAP_OID"
+    zone_field = "Overlap_Table_Joined_OBJECTID"
     input_raster = "mtbs_CA_{}.tif".format(year)
     class_field = "Value"
     output_tabulate = "tabulate_postfire_{}".format(year)
@@ -188,14 +152,15 @@ for year in range(1993, 2018):
     # ZONAL STATS
     arcpy.sa.ZonalStatisticsAsTable(input_zone, zone_field, input_raster, output_zonal, "NODATA", "ALL")
     # Add field to output_zonal that equals value of Overlap_Table_OVERLAP_OID field for that record
-    arcpy.management.AddField(output_zonal, "Overlap_Table_OVERLAP_OID", "LONG")
-    arcpy.management.CalculateField(output_zonal, "Overlap_Table_OVERLAP_OID", "!{}!".format(zone_field), "PYTHON3")
+    arcpy.management.AddField(output_zonal, "Overlap_Table_Joined_OBJECTID", "LONG")
+    arcpy.management.CalculateField(output_zonal, "Overlap_Table_Joined_OBJECTID", "!{}!".format(zone_field), "PYTHON3")
     # Add Ig_Year field to output_zonal and set its value to the current year   
-    arcpy.management.CalculateField(output_zonal, "Ig_Year", "{}".format(year), "PYTHON3", '', "LONG", "NO_ENFORCE_DOMAINS")
+    arcpy.management.CalculateField(output_zonal, "Ig_Year_zonal", "{}".format(year), "PYTHON3", '', "LONG", "NO_ENFORCE_DOMAINS")
     
     # TABULATE AREA
     arcpy.sa.TabulateArea(input_zone, zone_field, input_raster, class_field, output_tabulate)
-    arcpy.management.CalculateField(output_tabulate, "Ig_Year", "{}".format(year), "PYTHON3", '', "LONG", "NO_ENFORCE_DOMAINS")
+    arcpy.management.CalculateField(output_tabulate, "Ig_Year_tab", "{}".format(year), "PYTHON3", '', "LONG", "NO_ENFORCE_DOMAINS")
+
 
 # Find all tables containing the text "tabulate_postfire" in the name and merge them
 outTable = "tabulate_allyears"
@@ -208,7 +173,7 @@ arcpy.Merge_management(tableList, outTable)
 # Set the local variables
 outTable = "zonal_allyears"
 fieldMappings = arcpy.FieldMappings()
-keepFields = ["OBJECTID", "Overlap_Table_OVERLAP_OID", "Ig_Year", "MEAN", "MEDIAN", "MAJORITY"]
+keepFields = ["OBJECTID", "Overlap_Table_Joined_OBJECTID", "Ig_Year_zonal", "MEAN", "MEDIAN", "MAJORITY"]
 
 # Find all tables containing the text "zonalst_merged" in the name
 tableList = [table for table in arcpy.ListTables() if "zonal_postfire" in table]
@@ -225,26 +190,43 @@ arcpy.Merge_management(tableList, outTable, fieldMappings)
 
 # Join the merged Tabulate & Zonal tables by the OVERLAP_OID fields
 in_data = "Overlap_Feature_Joined"
-in_field = "OVERLAP_OID"
-in_field_zonal = "Overlap_Table_Joined_OVERLAP_OID"
-in_field_tabulate = "Overlap_Table_Joined_OVERLAP_OID"
+in_field = "OBJECTID"
+in_field_zonal = "Overlap_Table_Joined_OBJECTID"
+in_field_tabulate = "Overlap_Table_Joined_OBJECTID"
 out_data = "Overlap_Feature_Joined_Severity"
 
 join_table_zonal = "zonal_allyears"
-join_field_zonal = "Overlap_Table_OVERLAP_OID"
+join_field_zonal = "Overlap_Table_Joined_OBJECTID"
 join_table_tabulate = "tabulate_allyears"
-join_field_tabulate = "OVERLAP_TABLE_JOINED_OVERLAP_OID"
+join_field_tabulate = "OVERLAP_TABLE_JOINED_OBJECTID"
 
 arcpy.management.MakeFeatureLayer(in_data, "input_lyr")
-
-# arcpy.management.AddJoin("input_lyr", in_field_zonal, join_table_tabulate, join_field_tabulate, "KEEP_ALL")
-# arcpy.management.AddJoin("input_lyr", in_field_tabulate, join_table_zonal, join_field_zonal, "KEEP_ALL")
 arcpy.management.AddJoin("input_lyr", in_field_tabulate, join_table_tabulate, join_field_tabulate, "KEEP_COMMON")
 arcpy.management.AddJoin("input_lyr", in_field_zonal, join_table_zonal, join_field_zonal, "KEEP_COMMON")
 arcpy.management.CopyRows("input_lyr", out_data)
 
+# Remove prefixes in field names generated by AddJoin
+# Set the feature class
+fc = "Overlap_Feature_Joined_Severity"
+
+# Get a list of fields in the feature class
+fields = arcpy.ListFields(fc)
+
+# Loop through the fields
+for field in fields:
+    # Skip the OBJECTID field
+    if "OBJECTID" in field.name:
+        continue
+
+    # Get the field alias
+    field_alias = field.aliasName
+
+    # Rename the field to match its alias using the AlterField tool
+    arcpy.AlterField_management(fc, field.name, field_alias)
+
+
 # Join "OVERLAP_OID" in Overlap_Table_Joined with "OBJECTID" in Overlap_feature
-arcpy.management.AddJoin("Overlap_Table_Joined", "OVERLAP_OID", "Overlap_Feature_Joined_Severity", "Overlap_Feature_Joined_Overlap_Table_Joined_OVERLAP_OID", "KEEP_ALL", "NO_INDEX_JOIN_FIELDS")
+# arcpy.management.AddJoin("Overlap_Table_Joined", "OVERLAP_OID", "Overlap_Feature_Joined_Severity", "Overlap_Feature_Joined_Overlap_Table_Joined_OVERLAP_OID", "KEEP_ALL", "NO_INDEX_JOIN_FIELDS")
 
 # Export table to csv to be used for overlap summarization
-arcpy.TableToTable_conversion("Overlap_Table_Joined", r"C:\Users\smithke3\OneDrive - Oregon State University\Kelly\Data", "Postfire_Overlaps.csv")
+arcpy.TableToTable_conversion("Overlap_Feature_Joined_Severity", r"C:\Users\smithke3\OneDrive - Oregon State University\Kelly\Data", "Postfire_Overlaps.csv")

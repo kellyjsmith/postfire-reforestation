@@ -218,6 +218,26 @@ for table in tableList:
 arcpy.Merge_management(tableList, outTable, fieldMappings)
 
 
+# Set the table
+t = "zonal_allyears"
+
+# Rename the fields
+arcpy.AlterField_management(t, "VALUE_1", "Unburned_VeryLow")
+arcpy.AlterField_management(t, "VALUE_2", "Low")
+arcpy.AlterField_management(t, "VALUE_3", "Moderate")
+arcpy.AlterField_management(t, "VALUE_4", "High")
+arcpy.AlterField_management(t, "VALUE_5", "Increased_Greenness")
+arcpy.AlterField_management(t, "VALUE_6", "Processing_Mask")
+
+# Convert the values from square meters to acres
+fields = ["Unburned_VeryLow", "Low", "Moderate", "High", "Increased_Greenness", "Processing_Mask"]
+with arcpy.da.UpdateCursor(t, fields) as cursor:
+    for row in cursor:
+        row = [x * 0.000247105 for x in row]
+        cursor.updateRow(row)
+
+
+
 # Join the merged Tabulate & Zonal tables by the OVERLAP_OID fields
 in_data = "Overlap_Feature_Joined"
 in_field = "OBJECTID"
@@ -261,6 +281,9 @@ for field in fields:
 
 # Export table to csv to be used for overlap summarization
 arcpy.TableToTable_conversion("postfire_overlaps", r"C:\Users\smithke3\OneDrive - Oregon State University\Kelly\Data", "Postfire_Overlaps.csv")
+
+
+
 
 
 from collections import defaultdict
